@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SiteScan · Department Leaderboard</title>
+  <!-- Font Awesome 6 (free) & Inter font -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ---------- reset & base ---------- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", sans-serif;
+      background: linear-gradient(145deg, #f2f6fe 0%, #e9eff8 100%);
+      min-height: 100vh;
+      padding: 1.5rem;
+      color: #0b1b33;
+    }
+    /* ---------- glassmorphism card ---------- */
+    .glass {
+      background: rgba(255,255,255,0.70);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 20px 40px -12px rgba(0,20,40,0.15);
+    }
+    /* ---------- layout ---------- */
+    .app {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .logo h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #1e4b8a, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .logo i {
+      -webkit-text-fill-color: #2563eb;
+      font-size: 1.6rem;
+    }
+    /* ---------- summary cards with animation ---------- */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.8rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(4px);
+      border-radius: 2rem;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.6);
+      box-shadow: 0 8px 20px -8px rgba(0,20,40,0.08);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+      animation: fadeUp 0.5s ease-out both;
+    }
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .stat-card:hover {
+      transform: translateY(-5px) scale(1.02);
+      box-shadow: 0 16px 40px -12px rgba(37,99,235,0.15);
+    }
+    .stat-number {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1.1;
+      color: #0b1b33;
+      transition: all 0.3s ease;
+    }
+    .stat-card:hover .stat-number {
+      transform: scale(1.05);
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #446688;
+      letter-spacing: 0.3px;
+      margin-top: 0.2rem;
+    }
+    .stat-card.pending .stat-number { color: #b45309; }
+    .stat-card.resolved .stat-number { color: #0b7e4b; }
+    .stat-card.total .stat-number { color: #1e4b8a; }
+    /* ---------- leaderboard twin ---------- */
+    .twin-boards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 2rem;
+    }
+    .board {
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(8px);
+      border-radius: 2.2rem;
+      padding: 1.8rem 1.5rem 2rem;
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 20px 40px -16px rgba(0,20,40,0.10);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+      animation: boardPop 0.6s ease-out both;
+    }
+    .board:nth-child(1) { animation-delay: 0.4s; }
+    .board:nth-child(2) { animation-delay: 0.5s; }
+    @keyframes boardPop {
+      from { opacity: 0; transform: scale(0.92) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .board:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 30px 50px -18px rgba(0,30,60,0.18);
+    }
+    .board-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid rgba(37,99,235,0.08);
+      padding-bottom: 0.9rem;
+    }
+    .board-header h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #102a44;
+      letter-spacing: -0.2px;
+    }
+    .board-header i {
+      font-size: 1.6rem;
+      color: #2563eb;
+      transition: transform 0.3s ease;
+    }
+    .board:hover .board-header i {
+      transform: rotate(8deg) scale(1.1);
+    }
+    .board-header .badge-count {
+      margin-left: auto;
+      background: rgba(37,99,235,0.10);
+      padding: 0.2rem 0.9rem;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #2563eb;
+      animation: pulseBadge 2s ease-in-out infinite;
+    }
+    @keyframes pulseBadge {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.95); }
+    }
+    /* ---------- rank rows with animation ---------- */
+    .rank-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.6);
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.7rem;
+      border-radius: 1.5rem;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: 1px solid transparent;
+      backdrop-filter: blur(2px);
+      animation: rowSlide 0.4s ease-out both;
+    }
+    .rank-row:nth-child(1) { animation-delay: 0.05s; }
+    .rank-row:nth-child(2) { animation-delay: 0.10s; }
+    .rank-row:nth-child(3) { animation-delay: 0.15s; }
+    .rank-row:nth-child(4) { animation-delay: 0.20s; }
+    .rank-row:nth-child(5) { animation-delay: 0.25s; }
+    @keyframes rowSlide {
+      from { opacity: 0; transform: translateX(-15px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .rank-row:hover {
+      background: rgba(255,255,255,0.88);
+      border-color: rgba(37,99,235,0.2);
+      transform: translateX(4px) scale(1.01);
+      box-shadow: 0 4px 16px rgba(37,99,235,0.08);
+    }
+    .rank-badge {
+      width: 30px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-align: center;
+      color: #1e3a5f;
+      transition: transform 0.3s ease;
+    }
+    .rank-row:hover .rank-badge {
+      transform: scale(1.15);
+    }
+    .rank-badge .medal { font-size: 1.3rem; }
+    .rank-badge .gold { color: #fbbf24; animation: shimmer 2s ease-in-out infinite; }
+    .rank-badge .silver { color: #9ca3af; }
+    .rank-badge .bronze { color: #d97706; }
+    @keyframes shimmer {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15) rotate(5deg); }
+    }
+    .info {
+      flex: 1;
+      min-width: 0;
+    }
+    .info h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #0b1b33;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .info h4 i {
+      font-size: 0.8rem;
+      transition: transform 0.3s ease;
+    }
+    .rank-row:hover .info h4 i {
+      transform: rotate(10deg) scale(1.1);
+    }
+    .info .dept {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #4b6a8c;
+      background: rgba(37,99,235,0.06);
+      padding: 0.1rem 0.8rem;
+      border-radius: 30px;
+      display: inline-block;
+      transition: background 0.3s ease;
+    }
+    .rank-row:hover .info .dept {
+      background: rgba(37,99,235,0.12);
+    }
+    .info .stats-meta {
+      font-size: 0.7rem;
+      color: #4b6a8c;
+      margin-top: 2px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .info .stats-meta span {
+      background: rgba(0,0,0,0.02);
+      padding: 0 0.3rem;
+      border-radius: 8px;
+      transition: background 0.3s ease;
+    }
+    .rank-row:hover .info .stats-meta span {
+      background: rgba(37,99,235,0.06);
+    }
+    .email-link {
+      font-size: 0.7rem;
+      background: rgba(37,99,235,0.08);
+      padding: 0.15rem 0.7rem;
+      border-radius: 40px;
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      margin-top: 3px;
+    }
+    .email-link:hover {
+      background: rgba(37,99,235,0.2);
+      color: #1a4c9e;
+      transform: scale(1.05);
+      box-shadow: 0 2px 12px rgba(37,99,235,0.15);
+    }
+    .email-link i {
+      transition: transform 0.3s ease;
+    }
+    .email-link:hover i {
+      transform: translateX(2px);
+    }
+    .progress-wrap {
+      width: 90px;
+      min-width: 60px;
+    }
+    .progress-track {
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 20px;
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 20px;
+      transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+    .progress-fill.lazy-fill {
+      background: #b45309;
+      animation: progressPulse 2s ease-in-out infinite;
+    }
+    .progress-fill.active-fill {
+      background: #2563eb;
+      animation: progressPulse 2s ease-in-out infinite 0.5s;
+    }
+    @keyframes progressPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .value-tag {
+      font-weight: 600;
+      font-size: 0.8rem;
+      min-width: 38px;
+      text-align: right;
+      color: #1e3a5f;
+      transition: transform 0.3s ease;
+    }
+    .rank-row:hover .value-tag {
+      transform: scale(1.05);
+    }
+    .value-tag.lazy-tag { color: #b45309; }
+    .value-tag.active-tag { color: #0b7e4b; }
+    /* ---------- loader & empty ---------- */
+    .loader-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      padding: 2rem 0;
+      color: #446688;
+    }
+    .loader-wrap i {
+      font-size: 1.2rem;
+      color: #2563eb;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem 0.5rem;
+      color: #4b6a8c;
+      animation: fadeUp 0.5s ease-out;
+    }
+    .empty-state i { font-size: 2rem; opacity: 0.4; margin-bottom: 0.5rem; }
+    /* responsive */
+    @media (max-width: 700px) {
+      .header { flex-direction: column; align-items: start; gap: 0.8rem; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .twin-boards { grid-template-columns: 1fr; }
+      .rank-row { flex-wrap: wrap; }
+      .progress-wrap { width: 60px; }
+    }
+    .fa-spin { animation: spin 1.2s linear infinite; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- summary -->
+  <div class="summary-grid">
+    <div class="stat-card total"><div class="stat-number" id="totalCases">0</div><div class="stat-label"><i class="fa-regular fa-folder-open"></i> Total issues</div></div>
+    <div class="stat-card pending"><div class="stat-number" id="pendingCases">0</div><div class="stat-label"><i class="fa-regular fa-clock"></i> Pending</div></div>
+    <div class="stat-card resolved"><div class="stat-number" id="resolvedCases">0</div><div class="stat-label"><i class="fa-regular fa-circle-check"></i> Resolved</div></div>
+  </div>
+
+  <!-- twin boards -->
+  <div class="twin-boards">
+    <!-- lazy -->
+    <div class="board">
+      <div class="board-header">
+        <i class="fa-regular fa-hourglass-half"></i>
+        <h3>Lazy admins</h3>
+        <span class="badge-count">pending</span>
+      </div>
+      <div id="lazyContainer">
+        <div class="loader-wrap" id="lazyLoader"><i class="fa-solid fa-spinner"></i> loading...</div>
+        <div id="lazyList"></div>
+      </div>
+    </div>
+    <!-- active -->
+    <div class="board">
+      <div class="board-header">
+        <i class="fa-regular fa-bolt"></i>
+        <h3>Active admins</h3>
+        <span class="badge-count">completion</span>
+      </div>
+      <div id="activeContainer">
+        <div class="loader-wrap" id="activeLoader"><i class="fa-solid fa-spinner"></i> loading...</div>
+        <div id="activeList"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const supabase = createClient(
+  "https://vbxvxqxzdhloklxrcgvb.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZieHZ4cXh6ZGhsb2tseHJjZ3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTI4NDcsImV4cCI6MjA5MDI4ODg0N30.arjQZaDWHBt3E8IffvaRE07pWbCC6-RSvLHK2uLmHsU"
+);
+
+// manual mapping (kept original logic)
+const MANUAL_MAPPING = {
+  "sanitation": "Waste",
+  "roads & infrastructure": "Roads",
+};
+
+function normalize(str) {
+  return str?.toLowerCase().trim().replace(/[^a-z0-9&]/g, ' ') || '';
+}
+
+async function loadLeaderboard() {
+  const lazyLoader = document.getElementById("lazyLoader");
+  const activeLoader = document.getElementById("activeLoader");
+  const lazyList = document.getElementById("lazyList");
+  const activeList = document.getElementById("activeList");
+
+  lazyLoader.style.display = "flex";
+  activeLoader.style.display = "flex";
+  lazyList.innerHTML = "";
+  activeList.innerHTML = "";
+
+  try {
+    const [complaintsRes, adminsRes, deptsRes] = await Promise.all([
+      supabase.from("complaints").select("*"),
+      supabase.from("admins").select("name, email, department_id"),
+      supabase.from("departments").select("id, name")
+    ]);
+
+    if (complaintsRes.error) throw complaintsRes.error;
+    if (adminsRes.error) throw adminsRes.error;
+    if (deptsRes.error) throw deptsRes.error;
+
+    const complaints = complaintsRes.data || [];
+    const admins = adminsRes.data || [];
+    const departments = deptsRes.data || [];
+
+    const deptMap = Object.fromEntries(departments.map(d => [d.id, d.name]));
+    const adminsWithDept = admins.map(a => ({
+      ...a,
+      department_name: deptMap[a.department_id] || null
+    }));
+
+    // summary
+    const total = complaints.length;
+    const pending = complaints.filter(c => c.status?.toLowerCase() === "pending").length;
+    document.getElementById("totalCases").textContent = total;
+    document.getElementById("pendingCases").textContent = pending;
+    document.getElementById("resolvedCases").textContent = total - pending;
+
+    const adminDeptNames = adminsWithDept.map(a => a.department_name).filter(Boolean);
+    if (adminDeptNames.length === 0) {
+      const msg = `<div class="empty-state"><i class="fa-regular fa-circle-exclamation"></i><p>No admins with department assigned.<br>Please set department_id in 'admins'.</p></div>`;
+      lazyList.innerHTML = msg;
+      activeList.innerHTML = msg;
+      lazyLoader.style.display = "none";
+      activeLoader.style.display = "none";
+      return;
+    }
+
+    // build performance
+    const perf = adminsWithDept.map(admin => {
+      const deptName = admin.department_name;
+      if (!deptName) return null;
+      const deptNameNorm = normalize(deptName);
+
+      const deptComplaints = complaints.filter(c => {
+        const compDeptRaw = c.department;
+        if (!compDeptRaw) return false;
+        const compDeptNorm = normalize(compDeptRaw);
+
+        // manual mapping (exact same as original)
+        let mapped = compDeptRaw;
+        if (compDeptNorm.includes("sanitation")) mapped = "Waste";
+        else if (compDeptNorm.includes("road")) mapped = "Roads";
+        else if (compDeptNorm.includes("electric")) mapped = "Electricity";
+        else if (compDeptNorm.includes("water")) mapped = "Water";
+        else mapped = "Others";
+        const mappedNorm = normalize(mapped);
+        return mappedNorm === deptNameNorm;
+      });
+
+      const totalCases = deptComplaints.length;
+      const pendingCases = deptComplaints.filter(c => c.status?.toLowerCase() === "pending").length;
+      const resolvedCases = totalCases - pendingCases;
+      const completion = totalCases > 0 ? (resolvedCases / totalCases) * 100 : 0;
+
+      return {
+        name: admin.name,
+        email: admin.email,
+        department: deptName,
+        total: totalCases,
+        pending: pendingCases,
+        resolved: resolvedCases,
+        completion: completion
+      };
+    }).filter(p => p !== null);
+
+    if (perf.length === 0) {
+      const complaintDepts = [...new Set(complaints.map(c => c.department))];
+      const msg = `<div class="empty-state"><i class="fa-regular fa-file-lines"></i><p><strong>No matches found</strong><br>Complaint depts: ${complaintDepts.join(', ')}<br>Admin depts: ${adminDeptNames.join(', ')}</p></div>`;
+      lazyList.innerHTML = msg;
+      activeList.innerHTML = msg;
+      lazyLoader.style.display = "none";
+      activeLoader.style.display = "none";
+      return;
+    }
+
+    // sort & slice
+    const lazy = [...perf].sort((a, b) => b.pending - a.pending).slice(0, 5);
+    const active = [...perf].sort((a, b) => b.completion - a.completion).slice(0, 5);
+    const maxPending = Math.max(...perf.map(p => p.pending), 1);
+
+    lazyLoader.style.display = "none";
+    activeLoader.style.display = "none";
+
+    // helpers
+    const emailLink = (email, subj, body) =>
+      `<a class="email-link" href="https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}" target="_blank">
+        <i class="fa-regular fa-envelope"></i> email
+      </a>`;
+
+    const buildRow = (o, idx, mode) => {
+      const medal = idx === 0 ? "gold" : idx === 1 ? "silver" : idx === 2 ? "bronze" : null;
+      const rankHtml = medal ? `<i class="fa-solid fa-medal ${medal} medal"></i>` : `#${idx+1}`;
+      const subject = mode === "lazy"
+        ? `High pending issues in ${o.department}`
+        : `Excellent completion in ${o.department}`;
+      const body = mode === "lazy"
+        ? `Dear ${o.name},%0D%0A%0D%0AYour department (${o.department}) has ${o.pending} pending out of ${o.total}. Please take action.%0D%0AResolved: ${o.resolved} | Pending: ${o.pending} | Completion: ${o.completion.toFixed(1)}%`
+        : `Dear ${o.name},%0D%0A%0D%0ACongrats! Your department (${o.department}) resolved ${o.resolved}/${o.total} (${o.completion.toFixed(1)}%). Keep it up!`;
+
+      if (mode === "lazy") {
+        const pct = Math.min((o.pending / maxPending) * 100, 100);
+        return `<div class="rank-row">
+          <div class="rank-badge">${rankHtml}</div>
+          <div class="info">
+            <h4><i class="fa-regular fa-triangle-exclamation" style="color:#b45309;font-size:0.7rem;"></i> ${o.name}</h4>
+            <span class="dept">${o.department}</span>
+            <div class="stats-meta"><span>pending ${o.pending}</span><span>total ${o.total}</span></div>
+            ${emailLink(o.email, subject, body)}
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-track"><div class="progress-fill lazy-fill" style="width:${pct}%;"></div></div>
+          </div>
+          <div class="value-tag lazy-tag">${o.pending}</div>
+        </div>`;
+      } else {
+        return `<div class="rank-row">
+          <div class="rank-badge">${rankHtml}</div>
+          <div class="info">
+            <h4><i class="fa-regular fa-star" style="color:#fbbf24;font-size:0.7rem;"></i> ${o.name}</h4>
+            <span class="dept">${o.department}</span>
+            <div class="stats-meta"><span>resolved ${o.resolved}</span><span>total ${o.total}</span></div>
+            ${emailLink(o.email, subject, body)}
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-track"><div class="progress-fill active-fill" style="width:${Math.min(o.completion, 100)}%;"></div></div>
+          </div>
+          <div class="value-tag active-tag">${o.completion.toFixed(0)}%</div>
+        </div>`;
+      }
+    };
+
+    lazyList.innerHTML = lazy.map((o, i) => buildRow(o, i, "lazy")).join("");
+    activeList.innerHTML = active.map((o, i) => buildRow(o, i, "active")).join("");
+
+  } catch (err) {
+    console.error("Leaderboard error:", err);
+    lazyLoader.innerHTML = `<i class="fa-regular fa-circle-exclamation"></i> ${err.message || "error"}`;
+    activeLoader.innerHTML = `<i class="fa-regular fa-circle-exclamation"></i> ${err.message || "error"}`;
+    lazyLoader.style.display = "flex";
+    activeLoader.style.display = "flex";
+  }
+}
+
+loadLeaderboard();
+setInterval(loadLeaderboard, 30000);
+</script>
+</body>
+</html>
