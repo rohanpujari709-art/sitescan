@@ -1,1 +1,1 @@
-# Real-SiteScan
+ SiteScan is a web-based civic issue reporting platform that enables citizens to report public infrastructure problems and civic issues, helping authorities improve transparency, accountability, and community engagement
